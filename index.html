@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game Registrations Dashboard</title>
+    
+    <!-- Supabase JS Library -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            /* Light Theme Only */
+            --bg-body: #f8fafc;
+            --bg-card: #ffffff;
+            --text-main: #0f172a;
+            --text-muted: #64748b;
+            --primary: #2563eb;
+            --primary-hover: #1d4ed8;
+            --border: #e2e8f0;
+            --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            
+            /* Badge Colors */
+            --status-ok-bg: #dcfce7; --status-ok-text: #166534;
+            --status-bad-bg: #fee2e2; --status-bad-text: #991b1b;
+            --status-neutral-bg: #f1f5f9; --status-neutral-text: #475569;
+            
+            --pay-online-bg: #dbeafe; --pay-online-text: #1e40af;
+            --pay-cash-bg: #fef9c3; --pay-cash-text: #854d0e;
+            --pay-free-bg: #f3f4f6; --pay-free-text: #374151;
+            
+            /* Stats Colors */
+            --stat-bg: #eff6ff; --stat-text: #1e3a8a;
+        }
+
+        * { box-sizing: border-box; margin: 0; padding: 0; transition: background-color 0.3s, color 0.3s, border-color 0.3s; }
+        
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            line-height: 1.5;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- Header --- */
+        header {
+            background-color: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            padding: 1rem 1.5rem;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: sticky;
+            top: 0;
+            z-index: 50;
+            box-shadow: var(--shadow);
+        }
+        .brand { font-weight: 700; font-size: 1.25rem; display: flex; align-items: center; gap: 0.5rem; }
+
+        /* --- Controls Section --- */
+        .controls-wrapper {
+            background-color: var(--bg-card);
+            border-bottom: 1px solid var(--border);
+            padding: 1.5rem;
+        }
+        .controls-wrapper > div { max-width: 1200px; margin: 0 auto; }
+
+        /* Search Row */
+        .search-row {
+            display: flex; flex-wrap: wrap; gap: 1rem; align-items: center; margin-bottom: 1.5rem;
+        }
+        .search-box { position: relative; flex: 1; min-width: 300px; }
+        .search-box input {
+            width: 100%; padding: 0.6rem 1rem 0.6rem 2.5rem;
+            border-radius: 0.5rem; border: 1px solid var(--border);
+            background-color: var(--bg-body); color: var(--text-main);
+        }
+        .search-icon {
+            position: absolute; left: 0.75rem; top: 50%;
+            transform: translateY(-50%); color: var(--text-muted); width: 18px;
+        }
+
+        /* Filter Row */
+        .filter-row { display: flex; flex-wrap: wrap; gap: 1.5rem; align-items: center; }
+        .filter-group { display: flex; align-items: center; gap: 0.75rem; }
+        .filter-label {
+            font-size: 0.8rem; font-weight: 600; color: var(--text-muted);
+            text-transform: uppercase; letter-spacing: 0.05em; white-space: nowrap;
+        }
+        .filter-tabs {
+            display: flex; background-color: var(--bg-body);
+            padding: 0.25rem; border-radius: 0.5rem; border: 1px solid var(--border);
+        }
+        .tab-btn {
+            padding: 0.4rem 0.8rem; border-radius: 0.375rem; border: none;
+            background: none; color: var(--text-muted); cursor: pointer;
+            font-weight: 500; font-size: 0.85rem;
+        }
+        .tab-btn.active {
+            background-color: var(--bg-card); color: var(--text-main);
+            box-shadow: 0 1px 2px rgba(0,0,0,0.1);
+        }
+
+        /* Dynamic Dropdown */
+        .styled-select {
+            appearance: none; background-color: var(--bg-body); border: 1px solid var(--border);
+            color: var(--text-main); padding: 0.4rem 2rem 0.4rem 0.8rem; border-radius: 0.375rem;
+            cursor: pointer; font-size: 0.85rem; font-weight: 500; min-width: 180px; max-width: 260px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%236b7280'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+            background-repeat: no-repeat; background-position: right 0.6rem center; background-size: 16px;
+        }
+
+        /* --- Stats Bar --- */
+        .stats-section {
+            padding: 1.5rem 1.5rem 0.5rem;
+            max-width: 1200px; margin: 0 auto; width: 100%;
+        }
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+            gap: 0.75rem;
+        }
+        .stat-card {
+            background-color: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 0.5rem;
+            padding: 0.75rem;
+            text-align: center;
+        }
+        .stat-number { font-size: 1.25rem; font-weight: 700; color: var(--primary); line-height: 1.2; }
+        .stat-label { 
+            font-size: 0.7rem; 
+            color: var(--text-muted); 
+            text-transform: uppercase; 
+            margin-top: 0.25rem;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* --- Main Grid --- */
+        main { flex: 1; padding: 1rem 1.5rem 3rem; max-width: 1200px; margin: 0 auto; width: 100%; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1.5rem; }
+
+        /* --- Card Design --- */
+        .card {
+            background-color: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 1rem; overflow: hidden; box-shadow: var(--shadow);
+            display: flex; flex-direction: column;
+        }
+
+        .card-header {
+            padding: 1.25rem; border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; gap: 1rem;
+            background-color: var(--bg-body);
+        }
+        .avatar {
+            width: 42px; height: 42px;
+            background: linear-gradient(135deg, var(--primary), #8b5cf6);
+            border-radius: 50%; display: flex; align-items: center; justify-content: center;
+            color: white; font-weight: 700; font-size: 1.1rem; flex-shrink: 0;
+        }
+        .header-info h3 { font-size: 1rem; font-weight: 600; margin-bottom: 0.1rem; }
+        .header-info span { font-size: 0.75rem; color: var(--text-muted); }
+
+        .card-body { padding: 1.25rem; display: flex; flex-direction: column; gap: 0.75rem; }
+
+        /* Screenshot Area */
+        .screenshot-area {
+            margin-bottom: 0.5rem;
+        }
+        .screenshot-label {
+            font-size: 0.7rem; text-transform: uppercase; color: var(--text-muted);
+            margin-bottom: 0.25rem; font-weight: 600; display: flex; align-items: center; gap: 4px;
+        }
+        
+        /* Style for Text */
+        .screenshot-text {
+            font-size: 0.85rem;
+            color: var(--text-main);
+            background-color: var(--bg-body);
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            border: 1px solid var(--border);
+            word-break: break-all;
+        }
+
+        .screenshot-img {
+            width: 100%;
+            height: 120px;
+            object-fit: cover;
+            border-radius: 0.5rem;
+            border: 1px solid var(--border);
+            background-color: #000;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        .screenshot-img:hover { transform: scale(1.02); }
+
+        /* Updated Details Grid */
+        .details-grid { 
+            display: grid; 
+            grid-template-columns: repeat(auto-fit, minmax(100px, 1fr)); 
+            gap: 0.75rem; 
+        }
+        .detail-item label {
+            display: block; font-size: 0.7rem; text-transform: uppercase;
+            color: var(--text-muted); margin-bottom: 0.2rem; font-weight: 600;
+        }
+        .detail-item div { font-size: 0.9rem; font-weight: 500; }
+
+        /* Special styling for Fee */
+        .fee-text {
+            color: var(--primary);
+            font-weight: 600;
+        }
+
+        .card-footer {
+            padding: 1rem 1.25rem; border-top: 1px solid var(--border);
+            display: flex; justify-content: space-between; align-items: center;
+            margin-top: auto;
+        }
+
+        /* Badges */
+        .badge {
+            padding: 0.25rem 0.75rem; border-radius: 9999px;
+            font-size: 0.75rem; font-weight: 700; text-transform: uppercase;
+        }
+        .badge.ok { background-color: var(--status-ok-bg); color: var(--status-ok-text); }
+        .badge.bad { background-color: var(--status-bad-bg); color: var(--status-bad-text); }
+        .badge.neutral { background-color: var(--status-neutral-bg); color: var(--status-neutral-text); }
+        .badge.pay-online { background-color: var(--pay-online-bg); color: var(--pay-online-text); }
+        .badge.pay-cash { background-color: var(--pay-cash-bg); color: var(--pay-cash-text); }
+        .badge.pay-free { background-color: var(--pay-free-bg); color: var(--pay-free-text); }
+
+        /* States */
+        .state-msg { text-align: center; padding: 4rem 1rem; grid-column: 1 / -1; color: var(--text-muted); }
+        .error { color: #ef4444; }
+
+    </style>
+</head>
+<body>
+
+    <!-- Header -->
+    <header>
+        <div class="brand">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
+            <span>GamePortal</span>
+        </div>
+    </header>
+
+    <div class="controls-wrapper">
+        <div>
+            <!-- Search -->
+            <div class="search-row">
+                <div class="search-box">
+                    <svg class="search-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                    </svg>
+                    <input type="text" id="searchInput" placeholder="Search User, Game, or Scanner...">
+                </div>
+            </div>
+
+            <!-- Filters -->
+            <div class="filter-row">
+                
+                <!-- Dynamic Game Filter -->
+                <div class="filter-group">
+                    <span class="filter-label">Game</span>
+                    <select id="gameFilter" class="styled-select"><option value="all">All Games</option></select>
+                </div>
+
+                <!-- Dynamic Scanner Filter -->
+                <div class="filter-group">
+                    <span class="filter-label">Scanner</span>
+                    <select id="scannerFilter" class="styled-select"><option value="all">All Scanners</option></select>
+                </div>
+
+                <!-- Static Status Filter -->
+                <div class="filter-group">
+                    <span class="filter-label">Status</span>
+                    <div class="filter-tabs" id="statusFilters">
+                        <button class="tab-btn active" data-filter="all">All</button>
+                        <button class="tab-btn" data-filter="ok">Ok</button>
+                        <button class="tab-btn" data-filter="bad">Bad</button>
+                    </div>
+                </div>
+
+                <!-- Static Payment Filter -->
+                <div class="filter-group">
+                    <span class="filter-label">Payment</span>
+                    <div class="filter-tabs" id="paymentFilters">
+                        <button class="tab-btn active" data-filter="all">All</button>
+                        <button class="tab-btn" data-filter="online">Online</button>
+                        <button class="tab-btn" data-filter="cash">Cash</button>
+                        <button class="tab-btn" data-filter="free">Free</button>
+                    </div>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Section -->
+    <div class="stats-section" id="statsSection" style="display:none;">
+        <div class="stats-grid" id="statsGrid">
+            <!-- Stats injected here -->
+        </div>
+    </div>
+
+    <main>
+        <div id="gridContainer" class="grid"></div>
+    </main>
+
+    <script>
+        // --- Config ---
+        const SUPABASE_URL = 'https://uttqltazlrfswyflwcnk.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InV0dHFsdGF6bHJmc3d5Zmx3Y25rIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzAyOTg3MTQsImV4cCI6MjA4NTg3NDcxNH0.ZUEHfeaQO17r2s4_ZPft3ciRVG38vRV8LAJ6jzcr-D0';
+        const _supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        const TABLE_NAME = 'registrations';
+
+        // --- GAME FEES CONFIG ---
+        const gameFees = {
+            'KS GOT TALENT': 'Free',
+            'HOOKS STEP': 'Free',
+            'TUG OF WAR': "40/per person",
+            'BGMI - FREE FIRE': "40/per person",
+            'CRICKET': "300/per team",
+            'TRIPPY TROUBLES': "20/per person",
+            'TREASURE HUNT': "40/per person",
+            'MUSICAL CHAIR': "Free",
+            'COMPLETE THE LYRICS': "Free",
+            'WHISPER CHALLENGE': "25/per person",
+            'STUDENT OF THE YEAR': "50/per person"
+        };
+
+        // --- SCANNER NAME MAPPING ---
+        const scannerMap = {
+            'p1': 'Jigar sir',
+            'p2': "Dhwani ma'am",
+            'p3': "Vaibhavi ma'am "
+            
+
+        };
+
+        // --- State ---
+        let allData = [];
+        let currentStatusFilter = 'all';
+        let currentPaymentFilter = 'all';
+        let currentGameFilter = 'all';
+        let currentScannerFilter = 'all';
+
+        // --- DOM ---
+        const gridContainer = document.getElementById('gridContainer');
+        const searchInput = document.getElementById('searchInput');
+        const gameFilterSelect = document.getElementById('gameFilter');
+        const scannerFilterSelect = document.getElementById('scannerFilter');
+        const statsSection = document.getElementById('statsSection');
+        const statsGrid = document.getElementById('statsGrid');
+        const statusBtns = document.querySelectorAll('#statusFilters .tab-btn');
+        const paymentBtns = document.querySelectorAll('#paymentFilters .tab-btn');
+
+        // --- Init ---
+        document.addEventListener('DOMContentLoaded', () => {
+            fetchRegistrations();
+        });
+
+        // --- Logic ---
+
+        async function fetchRegistrations() {
+            gridContainer.innerHTML = `<div class="state-msg">Fetching registrations...</div>`;
+            
+            try {
+                const { data, error } = await _supabaseClient
+                    .from(TABLE_NAME)
+                    .select('*')
+                    .order('created_at', { ascending: false })
+                    .limit(200);
+
+                if (error) throw error;
+
+                // Normalize Data
+                allData = data.map(item => {
+                    const fn = item.first_name || item.firstname || '';
+                    const ln = item.last_name || item.lastname || '';
+                    const fullName = item.name || item.full_name || `${fn} ${ln}`.trim() || 'Unknown';
+                    const initials = fullName.split(' ').map(n => n[0]).slice(0,2).join('').toUpperCase();
+
+                    // Map Scanner Name
+                    const scannerRaw = item.scanner_name || item.scanner || 'Unknown';
+                    const lookupKey = scannerRaw.toLowerCase().replace(/\.(jpg|jpeg|png|webp)$/i, '');
+                    const scannerName = scannerMap[lookupKey] || scannerRaw;
+
+                    // Map Game Fee
+                    const rawGameName = item.game_name || item.game || '';
+                    const feeKey = rawGameName.toUpperCase().trim();
+                    const fee = gameFees[feeKey] || 'Check Fee';
+
+                    // Determine Payment Type
+                    const paymentRaw = item.payment_method || item.payment || 'Unknown';
+                    let paymentType = normalizePayment(paymentRaw);
+                    
+                    if (fee === 'Free') {
+                        paymentType = 'free';
+                    }
+
+                    // screen_short text
+                    const screenShort = item.screen_short || item.screenshot_text || null;
+
+                    return {
+                        id: item.id,
+                        name: fullName,
+                        initials: initials || '??',
+                        email: item.email || 'N/A',
+                        phone: item.phone || item.mobile || 'N/A',
+                        gameName: rawGameName || 'Unknown Game',
+                        scannerName: scannerName,
+                        scannerRaw: scannerRaw,
+                        fee: fee,
+                        paymentRaw: paymentRaw,
+                        screenshot: item.screenshot || item.screenshot_url || item.payment_image || item.image || null,
+                        screen_short: screenShort,
+                        status: normalizeStatus(item.status),
+                        paymentType: paymentType
+                    };
+                });
+
+                populateDynamicFilters();
+                applyFilters(); 
+
+            } catch (err) {
+                console.error(err);
+                gridContainer.innerHTML = `<div class="state-msg error">Error: ${err.message}</div>`;
+            }
+        }
+
+        function populateDynamicFilters() {
+            // 1. Games
+            const gamesSet = new Set(allData.map(d => d.gameName).filter(n => n && n !== 'Unknown Game'));
+            const uniqueGames = Array.from(gamesSet).sort();
+
+            gameFilterSelect.length = 1; 
+            uniqueGames.forEach(game => {
+                const opt = document.createElement('option');
+                opt.value = game; opt.textContent = game;
+                gameFilterSelect.appendChild(opt);
+            });
+
+            // 2. Scanners
+            const scannerMapDisplay = {};
+            
+            allData.forEach(item => {
+                if (!scannerMapDisplay[item.scannerName] && item.scannerName !== 'Unknown') {
+                    scannerMapDisplay[item.scannerName] = item.scannerRaw;
+                }
+            });
+
+            scannerFilterSelect.length = 1;
+            const sortedNames = Object.keys(scannerMapDisplay).sort();
+            
+            sortedNames.forEach(name => {
+                const rawCode = scannerMapDisplay[name];
+                const displayCode = rawCode.replace(/\.(jpg|jpeg|png|webp)$/i, '').toUpperCase();
+                
+                const opt = document.createElement('option');
+                opt.value = name; 
+                opt.textContent = `${displayCode} - ${name}`;
+                scannerFilterSelect.appendChild(opt);
+            });
+        }
+
+        function normalizeStatus(s) {
+            if (!s) return 'neutral';
+            const str = s.toLowerCase();
+            if (str === 'ok' || str === 'good' || str === 'approved' || str === 'active') return 'ok';
+            if (str === 'bad' || str === 'fail' || str === 'rejected' || str === 'error') return 'bad';
+            return 'neutral';
+        }
+
+        function normalizePayment(p) {
+            if (!p) return 'unknown';
+            const str = p.toLowerCase();
+            if (str.includes('online') || str.includes('upi') || str.includes('card')) return 'online';
+            if (str.includes('cash') || str.includes('cod')) return 'cash';
+            if (str.includes('free') || str.includes('complimentary')) return 'free';
+            return 'unknown';
+        }
+
+        function applyFilters() {
+            const query = searchInput.value.toLowerCase();
+            
+            const filtered = allData.filter(item => {
+                const matchesSearch = 
+                    item.name.toLowerCase().includes(query) || 
+                    item.gameName.toLowerCase().includes(query) || 
+                    item.scannerName.toLowerCase().includes(query);
+                const matchesStatus = currentStatusFilter === 'all' || item.status === currentStatusFilter;
+                const matchesPayment = currentPaymentFilter === 'all' || item.paymentType === currentPaymentFilter;
+                const matchesGame = currentGameFilter === 'all' || item.gameName === currentGameFilter;
+                const matchesScanner = currentScannerFilter === 'all' || item.scannerName === currentScannerFilter;
+
+                return matchesSearch && matchesStatus && matchesPayment && matchesGame && matchesScanner;
+            });
+
+            renderStats(filtered);
+            renderGrid(filtered);
+        }
+
+        function renderStats(items) {
+            if (items.length === 0) {
+                statsSection.style.display = 'none';
+                return;
+            }
+            statsSection.style.display = 'block';
+            statsGrid.innerHTML = '';
+
+            const totalCard = document.createElement('div');
+            totalCard.className = 'stat-card';
+            totalCard.innerHTML = `
+                <div class="stat-number">${items.length}</div>
+                <div class="stat-label">Total Reg</div>
+            `;
+            statsGrid.appendChild(totalCard);
+
+            const gameCounts = {};
+            items.forEach(item => {
+                gameCounts[item.gameName] = (gameCounts[item.gameName] || 0) + 1;
+            });
+
+            const sortedGames = Object.entries(gameCounts).sort((a, b) => b[1] - a[1]);
+
+            sortedGames.forEach(([gameName, count]) => {
+                const card = document.createElement('div');
+                card.className = 'stat-card';
+                card.innerHTML = `
+                    <div class="stat-number">${count}</div>
+                    <div class="stat-label" title="${gameName}">${gameName}</div>
+                `;
+                statsGrid.appendChild(card);
+            });
+        }
+
+        function renderGrid(items) {
+            gridContainer.innerHTML = '';
+            
+            if (items.length === 0) {
+                gridContainer.innerHTML = `<div class="state-msg">No registrations found.</div>`;
+                return;
+            }
+
+            items.forEach(item => {
+                let statusBadgeClass = item.status === 'ok' ? 'ok' : (item.status === 'bad' ? 'bad' : 'neutral');
+                let statusText = item.status === 'neutral' ? '' : item.status;
+
+                let payBadgeClass = item.paymentType === 'online' ? 'pay-online' : (item.paymentType === 'cash' ? 'pay-cash' : (item.paymentType === 'free' ? 'pay-free' : 'neutral'));
+                let payText = item.paymentType.charAt(0).toUpperCase() + item.paymentType.slice(1);
+
+                // --- FIXED LOGIC FOR SCREEN_SHORT ---
+                let screenshotHTML = '';
+                
+                // Only show this section if Payment Type is Online
+                if (item.paymentType === 'online') {
+                    // Priority 1: Check for Text
+                    if (item.screen_short && item.screen_short.trim() !== '') {
+                        screenshotHTML = `
+                            <div class="screenshot-area">
+                                <div class="screenshot-label">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                                    Payment Info
+                                </div>
+                                <div class="screenshot-text">${escapeHtml(item.screen_short)}</div>
+                            </div>
+                        `;
+                    } 
+                    // Priority 2: Check for Image (only if text is missing)
+                    else if (item.screenshot) {
+                        screenshotHTML = `
+                            <div class="screenshot-area">
+                                <div class="screenshot-label">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                                    Payment Screenshot
+                                </div>
+                                <img src="${item.screenshot}" class="screenshot-img" alt="Payment Proof" onclick="window.open(this.src)">
+                            </div>
+                        `;
+                    }
+                    // Else: No text, no image. Render NOTHING (so no "No Info" box shows up)
+                }
+
+                const statusBadgeHTML = (item.status !== 'neutral') 
+                    ? `<span class="badge ${statusBadgeClass}">${statusText}</span>`
+                    : '';
+
+                const card = document.createElement('div');
+                card.className = 'card';
+                card.innerHTML = `
+                    <div class="card-header">
+                        <div class="avatar">${item.initials}</div>
+                        <div class="header-info">
+                            <h3>${escapeHtml(item.name)}</h3>
+                            <span>ID: #${item.id}</span>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        ${screenshotHTML}
+                        <div class="details-grid">
+                            <div class="detail-item">
+                                <label>Game</label>
+                                <div>🎮 ${escapeHtml(item.gameName)}</div>
+                            </div>
+                            <div class="detail-item">
+                                <label>Scanner</label>
+                                <div>👤 ${escapeHtml(item.scannerName)}</div>
+                            </div>
+                            <div class="detail-item">
+                                <label>Fee</label>
+                                <div class="fee-text">💰 ${escapeHtml(item.fee)}</div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-footer">
+                        ${statusBadgeHTML}
+                        <span class="badge ${payBadgeClass}">${payText}</span>
+                    </div>
+                `;
+                gridContainer.appendChild(card);
+            });
+        }
+
+        // --- Utils ---
+        function escapeHtml(text) { return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;"); }
+
+        // --- Events ---
+        searchInput.addEventListener('input', applyFilters);
+        gameFilterSelect.addEventListener('change', (e) => { currentGameFilter = e.target.value; applyFilters(); });
+        scannerFilterSelect.addEventListener('change', (e) => { currentScannerFilter = e.target.value; applyFilters(); });
+
+        statusBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                statusBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentStatusFilter = btn.dataset.filter;
+                applyFilters();
+            });
+        });
+
+        paymentBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                paymentBtns.forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                currentPaymentFilter = btn.dataset.filter;
+                applyFilters();
+            });
+        });
+
+    </script>
+</body>
+</html>
